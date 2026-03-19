@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini CDA No.01 — Refrigeration Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+
+<style>
+:root {
+  --bg:        #0a0e1a;
+  --bg2:       #0f1628;
+  --panel:     #131d35;
+  --border:    #1e2d50;
+  --cyan:      #00e5ff;
+  --green:     #00ff9d;
+  --yellow:    #ffd600;
+  --red:       #ff3d5a;
+  --orange:    #ff8c00;
+  --text:      #ccd6f6;
+  --muted:     #4a6080;
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-ui:   'Kanit', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Scanline overlay ── */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,229,255,0.015) 2px,
+    rgba(0,229,255,0.015) 4px
+  );
+  pointer-events:none;
+  z-index:999;
+}
+
+/* ── Header ── */
+header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, var(--bg2) 0%, #0d1830 100%);
+  position:sticky; top:0; z-index:100;
+  backdrop-filter: blur(8px);
+}
+
+.logo {
+  display:flex; align-items:center; gap:12px;
+}
+.logo-icon {
+  width:36px; height:36px;
+  border: 2px solid var(--cyan);
+  border-radius:6px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px;
+  box-shadow: 0 0 12px rgba(0,229,255,0.4);
+  animation: pulse-border 3s ease-in-out infinite;
+}
+@keyframes pulse-border {
+  0%,100% { box-shadow: 0 0 8px rgba(0,229,255,0.3); }
+  50%      { box-shadow: 0 0 20px rgba(0,229,255,0.7); }
+}
+.logo-text { font-size:18px; font-weight:600; letter-spacing:1px; color:var(--cyan); }
+.logo-sub  { font-size:11px; color:var(--muted); font-family:var(--font-mono); }
+
+.header-right { display:flex; align-items:center; gap:16px; }
+
+#status-dot {
+  width:10px; height:10px; border-radius:50%;
+  background:var(--muted);
+  box-shadow: 0 0 0 3px rgba(74,96,128,0.3);
+  transition: all .4s;
+}
+#status-dot.online {
+  background:var(--green);
+  box-shadow: 0 0 0 3px rgba(0,255,157,0.25), 0 0 12px var(--green);
+  animation: blink 2s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.5;} }
+
+#status-text { font-size:12px; font-family:var(--font-mono); color:var(--muted); }
+#last-update { font-size:11px; font-family:var(--font-mono); color:var(--muted); }
+
+/* ── WiFi strength ── */
+#wifi-bars { display:flex; align-items:flex-end; gap:2px; height:18px; }
+.bar { width:4px; background:var(--muted); border-radius:1px; transition: background .4s; }
+.bar:nth-child(1){height:5px;}
+.bar:nth-child(2){height:9px;}
+.bar:nth-child(3){height:13px;}
+.bar:nth-child(4){height:18px;}
+
+/* ── Main layout ── */
+main { padding:20px; max-width:1400px; margin:0 auto; }
+
+/* ── Refrigerant selector ── */
+.ref-bar {
+  display:flex; gap:8px; flex-wrap:wrap;
+  margin-bottom:20px;
+  padding:14px 16px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  align-items:center;
+}
+.ref-label { font-size:12px; color:var(--muted); font-family:var(--font-mono); margin-right:4px; }
+.ref-btn {
+  padding:6px 14px;
+  border: 1px solid var(--border);
+  border-radius:20px;
+  background:transparent;
+  color:var(--muted);
+  font-family:var(--font-mono);
+  font-size:12px;
+  cursor:pointer;
+  transition: all .2s;
+}
+.ref-btn:hover { border-color:var(--cyan); color:var(--cyan); }
+.ref-btn.active {
+  background:rgba(0,229,255,0.12);
+  border-color:var(--cyan);
+  color:var(--cyan);
+  box-shadow: 0 0 10px rgba(0,229,255,0.2);
+}
+
+/* ── Metric grid ── */
+.grid-metrics {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap:14px;
+  margin-bottom:20px;
+}
+
+.metric-card {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:18px 20px;
+  position:relative;
+  overflow:hidden;
+  transition: border-color .3s, transform .2s;
+}
+.metric-card:hover { border-color:rgba(0,229,255,0.4); transform:translateY(-2px); }
+.metric-card::before {
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:2px;
+  background:var(--accent, var(--cyan));
+  opacity:.7;
+}
+
+.metric-label {
+  font-size:11px;
+  color:var(--muted);
+  font-family:var(--font-mono);
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+.metric-value {
+  font-size:36px;
+  font-family:var(--font-mono);
+  font-weight:700;
+  color:var(--accent, var(--cyan));
+  line-height:1;
+  text-shadow: 0 0 20px var(--accent, rgba(0,229,255,0.5));
+  transition: color .3s;
+}
+.metric-unit {
+  font-size:13px;
+  color:var(--muted);
+  font-family:var(--font-mono);
+  margin-top:4px;
+}
+.metric-sub {
+  font-size:11px;
+  color:var(--muted);
+  margin-top:6px;
+  font-family:var(--font-mono);
+}
+
+/* Color variants */
+.card-cyan  { --accent: var(--cyan); }
+.card-green { --accent: var(--green); }
+.card-yellow{ --accent: var(--yellow); }
+.card-red   { --accent: var(--red); }
+.card-orange{ --accent: var(--orange); }
+
+/* Status badge on metric */
+.badge {
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:10px;
+  font-size:10px;
+  font-family:var(--font-mono);
+  margin-top:6px;
+}
+.badge-ok   { background:rgba(0,255,157,0.12); color:var(--green); border:1px solid rgba(0,255,157,0.3); }
+.badge-warn { background:rgba(255,214,0,0.12);  color:var(--yellow); border:1px solid rgba(255,214,0,0.3); }
+.badge-alarm{ background:rgba(255,61,90,0.12); color:var(--red);   border:1px solid rgba(255,61,90,0.3); }
+
+/* ── Charts row ── */
+.grid-charts {
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:14px;
+  margin-bottom:20px;
+}
+@media(max-width:768px){ .grid-charts { grid-template-columns:1fr; } }
+
+.chart-card {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:18px;
+}
+.chart-title {
+  font-size:12px;
+  font-family:var(--font-mono);
+  color:var(--muted);
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  margin-bottom:14px;
+}
+.chart-wrap { position:relative; height:180px; }
+
+/* ── Bottom row: Control + Log ── */
+.grid-bottom {
+  display:grid;
+  grid-template-columns: 340px 1fr;
+  gap:14px;
+}
+@media(max-width:900px){ .grid-bottom { grid-template-columns:1fr; } }
+
+/* ── Control panel ── */
+.control-card {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:20px;
+}
+.control-title {
+  font-size:12px;
+  font-family:var(--font-mono);
+  color:var(--muted);
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  margin-bottom:16px;
+}
+
+.control-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 0;
+  border-bottom:1px solid var(--border);
+}
+.control-row:last-of-type { border-bottom:none; }
+.control-name { font-size:14px; color:var(--text); }
+.control-desc { font-size:11px; color:var(--muted); font-family:var(--font-mono); margin-top:2px; }
+
+/* Toggle switch */
+.toggle { position:relative; width:46px; height:24px; cursor:pointer; }
+.toggle input { opacity:0; width:0; height:0; }
+.slider {
+  position:absolute; inset:0;
+  background:var(--border);
+  border-radius:12px;
+  transition:.3s;
+}
+.slider::before {
+  content:'';
+  position:absolute;
+  width:18px; height:18px;
+  left:3px; top:3px;
+  background:var(--muted);
+  border-radius:50%;
+  transition:.3s;
+}
+.toggle input:checked + .slider { background:rgba(0,229,255,0.25); border:1px solid var(--cyan); }
+.toggle input:checked + .slider::before { transform:translateX(22px); background:var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+
+/* ── Log table ── */
+.log-card {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:20px;
+  overflow:hidden;
+}
+.log-header {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:14px;
+}
+.log-title {
+  font-size:12px;
+  font-family:var(--font-mono);
+  color:var(--muted);
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+}
+.log-clear-btn {
+  font-size:10px;
+  font-family:var(--font-mono);
+  color:var(--muted);
+  background:transparent;
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:3px 8px;
+  cursor:pointer;
+  transition:.2s;
+}
+.log-clear-btn:hover { border-color:var(--red); color:var(--red); }
+
+.log-table-wrap { overflow-y:auto; max-height:220px; }
+.log-table-wrap::-webkit-scrollbar { width:4px; }
+.log-table-wrap::-webkit-scrollbar-track { background:var(--bg); }
+.log-table-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+table { width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:12px; }
+thead th {
+  text-align:left;
+  color:var(--muted);
+  padding:4px 8px;
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;
+  position:sticky; top:0;
+  background:var(--panel);
+}
+tbody tr { transition:background .15s; }
+tbody tr:hover { background:rgba(0,229,255,0.04); }
+tbody td { padding:5px 8px; color:var(--text); border-bottom:1px solid rgba(30,45,80,0.5); white-space:nowrap; }
+.td-time { color:var(--muted); }
+
+/* ── Responsive mobile ── */
+@media(max-width:600px){
+  header { padding:12px 14px; }
+  .logo-text { font-size:15px; }
+  main { padding:12px; }
+  .metric-value { font-size:28px; }
+}
+
+/* ── Flash animation on value update ── */
+@keyframes flash-update {
+  0%   { opacity:.4; }
+  100% { opacity:1; }
+}
+.flash { animation: flash-update .4s ease-out; }
+
+/* ── Firebase config modal ── */
+#config-overlay {
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.85);
+  display:flex; align-items:center; justify-content:center;
+  z-index:9999;
+  backdrop-filter:blur(4px);
+}
+.config-box {
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:32px;
+  width:min(480px, 95vw);
+}
+.config-title {
+  font-size:18px;
+  font-weight:600;
+  color:var(--cyan);
+  margin-bottom:8px;
+}
+.config-sub {
+  font-size:13px;
+  color:var(--muted);
+  margin-bottom:24px;
+  line-height:1.7;
+  font-family:var(--font-mono);
+}
+.config-field {
+  margin-bottom:14px;
+}
+.config-field label {
+  display:block;
+  font-size:11px;
+  font-family:var(--font-mono);
+  color:var(--muted);
+  margin-bottom:5px;
+  text-transform:uppercase;
+  letter-spacing:1px;
+}
+.config-field input {
+  width:100%;
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:6px;
+  padding:9px 12px;
+  color:var(--text);
+  font-family:var(--font-mono);
+  font-size:13px;
+  outline:none;
+  transition:.2s;
+}
+.config-field input:focus { border-color:var(--cyan); box-shadow:0 0 0 2px rgba(0,229,255,0.1); }
+
+.config-btn {
+  width:100%;
+  margin-top:8px;
+  padding:12px;
+  background:rgba(0,229,255,0.1);
+  border:1px solid var(--cyan);
+  border-radius:8px;
+  color:var(--cyan);
+  font-family:var(--font-mono);
+  font-size:14px;
+  cursor:pointer;
+  transition:.2s;
+  letter-spacing:1px;
+}
+.config-btn:hover { background:rgba(0,229,255,0.2); box-shadow:0 0 16px rgba(0,229,255,0.2); }
+</style>
+</head>
+<body>
+
+<!-- ── Firebase Config Modal (shown first time) ── -->
+<div id="config-overlay">
+  <div class="config-box">
+    <div class="config-title">🔧 ตั้งค่า Firebase</div>
+    <div class="config-sub">
+      กรอกข้อมูล Firebase ของคุณ 1 ครั้ง<br>
+      ระบบจะจำไว้ใน Browser อัตโนมัติ
+    </div>
+    <div class="config-field">
+      <label>API Key</label>
+      <input id="cfg-apikey" placeholder="AIzaSy..." />
+    </div>
+    <div class="config-field">
+      <label>Auth Domain</label>
+      <input id="cfg-authdomain" placeholder="your-project.firebaseapp.com" />
+    </div>
+    <div class="config-field">
+      <label>Database URL</label>
+      <input id="cfg-dburl" placeholder="https://your-project-default-rtdb.firebaseio.com" />
+    </div>
+    <div class="config-field">
+      <label>Project ID</label>
+      <input id="cfg-projectid" placeholder="your-project-id" />
+    </div>
+    <button class="config-btn" onclick="saveConfig()">▶ เชื่อมต่อ Firebase</button>
+  </div>
+</div>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">❄</div>
+    <div>
+      <div class="logo-text">Mini CDA No.01</div>
+      <div class="logo-sub">REFRIGERATION MONITOR</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div id="wifi-bars">
+      <div class="bar" id="b1"></div>
+      <div class="bar" id="b2"></div>
+      <div class="bar" id="b3"></div>
+      <div class="bar" id="b4"></div>
+    </div>
+    <div>
+      <div id="status-text" style="text-align:right">OFFLINE</div>
+      <div id="last-update">--:--:--</div>
+    </div>
+    <div id="status-dot"></div>
+  </div>
+</header>
+
+<!-- ── Main ── -->
+<main>
+
+  <!-- Refrigerant selector -->
+  <div class="ref-bar">
+    <span class="ref-label">สารทำความเย็น :</span>
+    <button class="ref-btn active" data-ref="1" onclick="selectRef(this)">R410a</button>
+    <button class="ref-btn" data-ref="2" onclick="selectRef(this)">R404a</button>
+    <button class="ref-btn" data-ref="3" onclick="selectRef(this)">R134a</button>
+    <button class="ref-btn" data-ref="4" onclick="selectRef(this)">R448a</button>
+    <button class="ref-btn" data-ref="5" onclick="selectRef(this)">R290</button>
+    <button class="ref-btn" data-ref="6" onclick="selectRef(this)">R407c</button>
+    <button class="ref-btn" data-ref="7" onclick="selectRef(this)">R32</button>
+    <button class="ref-btn" data-ref="8" onclick="selectRef(this)">R22</button>
+    <button class="ref-btn" data-ref="9" onclick="selectRef(this)">R513a</button>
+  </div>
+
+  <!-- Metric cards -->
+  <div class="grid-metrics">
+    <div class="metric-card card-cyan">
+      <div class="metric-label">PD — High Pressure</div>
+      <div class="metric-value" id="val-pd">--.-</div>
+      <div class="metric-unit">MPa</div>
+      <div class="metric-sub">Sat. Temp: <span id="val-ctR">--</span> °C</div>
+    </div>
+    <div class="metric-card card-green">
+      <div class="metric-label">PS — Low Pressure</div>
+      <div class="metric-value" id="val-ps">--.-</div>
+      <div class="metric-unit">MPa</div>
+      <div class="metric-sub">Sat. Temp: <span id="val-etR">--</span> °C</div>
+    </div>
+    <div class="metric-card card-yellow">
+      <div class="metric-label">TD — Discharge Temp</div>
+      <div class="metric-value" id="val-td">--.-</div>
+      <div class="metric-unit">°C</div>
+      <div class="metric-sub">DSH: <span id="val-dsh">--</span> K <span id="badge-dsh" class="badge"></span></div>
+    </div>
+    <div class="metric-card card-orange">
+      <div class="metric-label">TS — Suction Temp</div>
+      <div class="metric-value" id="val-ts">--.-</div>
+      <div class="metric-unit">°C</div>
+      <div class="metric-sub">SSH: <span id="val-ssh">--</span> K <span id="badge-ssh" class="badge"></span></div>
+    </div>
+    <div class="metric-card card-red">
+      <div class="metric-label">TTop — Top Temp</div>
+      <div class="metric-value" id="val-ttop">--.-</div>
+      <div class="metric-unit">°C</div>
+    </div>
+    <div class="metric-card card-cyan">
+      <div class="metric-label">TCond Out — Cond. Temp</div>
+      <div class="metric-value" id="val-tcond">--.-</div>
+      <div class="metric-unit">°C</div>
+      <div class="metric-sub">Subcool: <span id="val-sub">--</span> K</div>
+    </div>
+    <div class="metric-card card-green">
+      <div class="metric-label">Refrigerant</div>
+      <div class="metric-value" id="val-refname" style="font-size:28px">--</div>
+      <div class="metric-unit">Active</div>
+    </div>
+    <div class="metric-card card-cyan">
+      <div class="metric-label">WiFi RSSI</div>
+      <div class="metric-value" id="val-rssi">--</div>
+      <div class="metric-unit">dBm</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid-charts">
+    <div class="chart-card">
+      <div class="chart-title">📈 Pressure History (MPa)</div>
+      <div class="chart-wrap"><canvas id="chart-pressure"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">🌡 Temperature History (°C)</div>
+      <div class="chart-wrap"><canvas id="chart-temp"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Bottom: Control + Log -->
+  <div class="grid-bottom">
+
+    <!-- Controls -->
+    <div class="control-card">
+      <div class="control-title">⚙ Control Panel</div>
+
+      <div class="control-row">
+        <div>
+          <div class="control-name">Compressor</div>
+          <div class="control-desc">SW_REF — สั่งเปิด/ปิด</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="sw-ref" onchange="sendCommand('sw_ref', this.checked?1:0)">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="control-row" style="flex-direction:column; align-items:flex-start; gap:10px;">
+        <div class="control-desc">เลือกสารทำความเย็น (ส่งไป ESP8266)</div>
+        <select id="ref-select-ctrl" onchange="sendCommand('refrigerant_index', parseInt(this.value))"
+          style="background:var(--bg); border:1px solid var(--border); color:var(--text);
+                 padding:7px 12px; border-radius:6px; font-family:var(--font-mono); width:100%; cursor:pointer;">
+          <option value="1">R410a</option>
+          <option value="2">R404a</option>
+          <option value="3">R134a</option>
+          <option value="4">R448a</option>
+          <option value="5">R290</option>
+          <option value="6">R407c</option>
+          <option value="7">R32</option>
+          <option value="8">R22</option>
+          <option value="9">R513a</option>
+        </select>
+      </div>
+
+      <div class="control-row">
+        <div>
+          <div class="control-name">Auto Refresh</div>
+          <div class="control-desc">อัปเดตทุก 5 วิ</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="sw-autorefresh" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Log table -->
+    <div class="log-card">
+      <div class="log-header">
+        <div class="log-title">📋 Data Log</div>
+        <button class="log-clear-btn" onclick="clearLog()">CLEAR</button>
+      </div>
+      <div class="log-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Ref</th>
+              <th>PD</th>
+              <th>PS</th>
+              <th>TD</th>
+              <th>TS</th>
+              <th>DSH</th>
+              <th>SSH</th>
+              <th>Sub</th>
+            </tr>
+          </thead>
+          <tbody id="log-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─────────────────────────────────────────────
+// CONFIG — save/load from localStorage
+// ─────────────────────────────────────────────
+let db = null;
+let logEntries = [];
+const MAX_LOG = 100;
+const MAX_CHART_POINTS = 30;
+
+const chartLabels = [];
+const pdData = [], psData = [], tdData = [], tsData = [];
+
+function saveConfig() {
+  const cfg = {
+    apiKey:      document.getElementById('cfg-apikey').value.trim(),
+    authDomain:  document.getElementById('cfg-authdomain').value.trim(),
+    databaseURL: document.getElementById('cfg-dburl').value.trim(),
+    projectId:   document.getElementById('cfg-projectid').value.trim(),
+  };
+  if (!cfg.apiKey || !cfg.databaseURL) {
+    alert('กรุณากรอก API Key และ Database URL'); return;
+  }
+  localStorage.setItem('minicda_firebase_cfg', JSON.stringify(cfg));
+  document.getElementById('config-overlay').style.display = 'none';
+  initFirebase(cfg);
+}
+
+function loadConfig() {
+  const raw = localStorage.getItem('minicda_firebase_cfg');
+  if (raw) {
+    const cfg = JSON.parse(raw);
+    document.getElementById('config-overlay').style.display = 'none';
+    initFirebase(cfg);
+  }
+}
+
+function initFirebase(cfg) {
+  try {
+    const app = firebase.initializeApp(cfg);
+    db = firebase.database();
+    listenData();
+  } catch(e) {
+    console.error('Firebase init error:', e);
+    setOffline();
+  }
+}
+
+// ─────────────────────────────────────────────
+// FIREBASE LISTENER
+// ─────────────────────────────────────────────
+function listenData() {
+  if (!db) return;
+  db.ref('minicda/sensors').on('value', snap => {
+    const d = snap.val();
+    if (!d) return;
+    updateDashboard(d);
+  });
+
+  // Listen for command acknowledgements (optional)
+  db.ref('minicda/commands/refrigerant_index').on('value', snap => {
+    const v = snap.val();
+    if (v !== null) {
+      document.getElementById('ref-select-ctrl').value = v;
+      document.querySelectorAll('.ref-btn').forEach(b => {
+        b.classList.toggle('active', parseInt(b.dataset.ref) === v);
+      });
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// UPDATE DASHBOARD
+// ─────────────────────────────────────────────
+function flashEl(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+}
+
+function setSuperHeatBadge(id, val) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (val >= 5 && val <= 25) { el.className='badge badge-ok'; el.textContent='OK'; }
+  else if (val < 5)           { el.className='badge badge-alarm'; el.textContent='LOW'; }
+  else                        { el.className='badge badge-warn'; el.textContent='HIGH'; }
+}
+
+function updateDashboard(d) {
+  const fields = {
+    'val-pd':      d.PD?.toFixed(2) ?? '--',
+    'val-ps':      d.PS?.toFixed(2) ?? '--',
+    'val-td':      d.TD?.toFixed(1) ?? '--',
+    'val-ts':      d.TS?.toFixed(1) ?? '--',
+    'val-ttop':    d.TTop?.toFixed(1) ?? '--',
+    'val-tcond':   d.TCondout?.toFixed(1) ?? '--',
+    'val-dsh':     d.DSH ?? '--',
+    'val-ssh':     d.SSH ?? '--',
+    'val-sub':     d.Subcool?.toFixed(1) ?? '--',
+    'val-refname': d.RefName ?? '--',
+    'val-ctR':     d.CTR?.toFixed(1) ?? '--',
+    'val-etR':     d.ETR?.toFixed(1) ?? '--',
+    'val-rssi':    d.RSSI ?? '--',
+  };
+  for (const [id, val] of Object.entries(fields)) {
+    const el = document.getElementById(id);
+    if (el && el.textContent !== String(val)) {
+      el.textContent = val;
+      flashEl(id);
+    }
+  }
+
+  if (d.DSH !== undefined) setSuperHeatBadge('badge-dsh', d.DSH);
+  if (d.SSH !== undefined) setSuperHeatBadge('badge-ssh', d.SSH);
+
+  // WiFi bars
+  updateWifiBars(d.RSSI);
+
+  // Status
+  document.getElementById('status-dot').classList.add('online');
+  document.getElementById('status-text').textContent = 'ONLINE';
+  document.getElementById('last-update').textContent =
+    new Date().toLocaleTimeString('th-TH', {hour12:false});
+
+  // Chart update
+  const now = new Date().toLocaleTimeString('th-TH', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  pushChart(now, d.PD, d.PS, d.TD, d.TS);
+
+  // Log
+  if (d.PD !== undefined) addLog(d);
+}
+
+function setOffline() {
+  document.getElementById('status-dot').classList.remove('online');
+  document.getElementById('status-text').textContent = 'OFFLINE';
+}
+
+// ─────────────────────────────────────────────
+// WIFI BARS
+// ─────────────────────────────────────────────
+function updateWifiBars(rssi) {
+  const bars = [document.getElementById('b1'), document.getElementById('b2'),
+                document.getElementById('b3'), document.getElementById('b4')];
+  let active = 0;
+  if      (rssi >= -50) active = 4;
+  else if (rssi >= -65) active = 3;
+  else if (rssi >= -75) active = 2;
+  else if (rssi >= -85) active = 1;
+  bars.forEach((b, i) => {
+    b.style.background = i < active ? 'var(--green)' : 'var(--muted)';
+  });
+}
+
+// ─────────────────────────────────────────────
+// CONTROL
+// ─────────────────────────────────────────────
+function sendCommand(key, value) {
+  if (!db) { alert('ยังไม่ได้เชื่อมต่อ Firebase'); return; }
+  db.ref('minicda/commands/' + key).set(value);
+}
+
+function selectRef(btn) {
+  document.querySelectorAll('.ref-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const idx = parseInt(btn.dataset.ref);
+  document.getElementById('ref-select-ctrl').value = idx;
+  sendCommand('refrigerant_index', idx);
+}
+
+// ─────────────────────────────────────────────
+// CHARTS
+// ─────────────────────────────────────────────
+const chartOpts = (color1, color2) => ({
+  responsive:true, maintainAspectRatio:false,
+  animation:{ duration:300 },
+  plugins:{ legend:{ labels:{ color:'#4a6080', font:{family:'Share Tech Mono', size:10} } } },
+  scales:{
+    x:{ ticks:{ color:'#4a6080', font:{family:'Share Tech Mono', size:9}, maxTicksLimit:6 }, grid:{ color:'rgba(30,45,80,0.5)' } },
+    y:{ ticks:{ color:'#4a6080', font:{family:'Share Tech Mono', size:9} }, grid:{ color:'rgba(30,45,80,0.5)' } }
+  }
+});
+
+const pressureChart = new Chart(document.getElementById('chart-pressure'), {
+  type:'line',
+  data:{
+    labels: chartLabels,
+    datasets:[
+      { label:'PD (MPa)', data:pdData, borderColor:'#00e5ff', backgroundColor:'rgba(0,229,255,0.06)', tension:.4, pointRadius:2, borderWidth:1.5 },
+      { label:'PS (MPa)', data:psData, borderColor:'#00ff9d', backgroundColor:'rgba(0,255,157,0.06)', tension:.4, pointRadius:2, borderWidth:1.5 },
+    ]
+  },
+  options: chartOpts('#00e5ff','#00ff9d')
+});
+
+const tempChart = new Chart(document.getElementById('chart-temp'), {
+  type:'line',
+  data:{
+    labels: chartLabels,
+    datasets:[
+      { label:'TD (°C)', data:tdData, borderColor:'#ffd600', backgroundColor:'rgba(255,214,0,0.06)', tension:.4, pointRadius:2, borderWidth:1.5 },
+      { label:'TS (°C)', data:tsData, borderColor:'#ff8c00', backgroundColor:'rgba(255,140,0,0.06)', tension:.4, pointRadius:2, borderWidth:1.5 },
+    ]
+  },
+  options: chartOpts('#ffd600','#ff8c00')
+});
+
+function pushChart(label, pd, ps, td, ts) {
+  if (chartLabels.length >= MAX_CHART_POINTS) {
+    chartLabels.shift(); pdData.shift(); psData.shift(); tdData.shift(); tsData.shift();
+  }
+  chartLabels.push(label);
+  pdData.push(pd ?? null);
+  psData.push(ps ?? null);
+  tdData.push(td ?? null);
+  tsData.push(ts ?? null);
+  pressureChart.update();
+  tempChart.update();
+}
+
+// ─────────────────────────────────────────────
+// LOG
+// ─────────────────────────────────────────────
+function addLog(d) {
+  const row = {
+    time:    new Date().toLocaleTimeString('th-TH', {hour12:false}),
+    ref:     d.RefName ?? '--',
+    pd:      d.PD?.toFixed(2) ?? '--',
+    ps:      d.PS?.toFixed(2) ?? '--',
+    td:      d.TD?.toFixed(1) ?? '--',
+    ts:      d.TS?.toFixed(1) ?? '--',
+    dsh:     d.DSH ?? '--',
+    ssh:     d.SSH ?? '--',
+    sub:     d.Subcool?.toFixed(1) ?? '--',
+  };
+  logEntries.unshift(row);
+  if (logEntries.length > MAX_LOG) logEntries.pop();
+  renderLog();
+}
+
+function renderLog() {
+  const tbody = document.getElementById('log-tbody');
+  tbody.innerHTML = logEntries.map(r => `
+    <tr>
+      <td class="td-time">${r.time}</td>
+      <td>${r.ref}</td>
+      <td>${r.pd}</td>
+      <td>${r.ps}</td>
+      <td>${r.td}</td>
+      <td>${r.ts}</td>
+      <td>${r.dsh}</td>
+      <td>${r.ssh}</td>
+      <td>${r.sub}</td>
+    </tr>`).join('');
+}
+
+function clearLog() { logEntries = []; renderLog(); }
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+loadConfig();
+</script>
+</body>
+</html>
