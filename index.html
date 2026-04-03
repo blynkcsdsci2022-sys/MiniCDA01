@@ -234,11 +234,54 @@ main { padding:20px; max-width:1400px; margin:0 auto; }
 @keyframes flash-update { 0%{opacity:.25} 100%{opacity:1} }
 .flash { animation:flash-update .35s ease-out; }
 
+/* ── Chart Controls ── */
+.chart-ctrl {
+  display:flex; flex-wrap:wrap; align-items:center; gap:10px;
+  padding:10px 14px 14px;
+  border-top:1px solid var(--border);
+  margin-top:12px;
+}
+.ctrl-group {
+  display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+}
+.ctrl-label {
+  font-size:10px; font-family:var(--font-mono);
+  color:var(--text2); letter-spacing:1.5px; white-space:nowrap;
+}
+.ctrl-select, .ctrl-input {
+  background:var(--bg); border:1px solid var(--border2);
+  color:var(--text); font-family:var(--font-mono); font-size:12px;
+  border-radius:6px; padding:4px 8px; outline:none;
+  transition:.2s; cursor:pointer;
+}
+.ctrl-select:focus, .ctrl-input:focus {
+  border-color:var(--cyan); box-shadow:0 0 0 2px rgba(0,212,255,0.1);
+}
+.ctrl-input { width:72px; text-align:center; }
+.ctrl-input::placeholder { color:var(--muted); }
+.ctrl-sep { width:1px; height:20px; background:var(--border); flex-shrink:0; }
+
+.ctrl-mode-btn {
+  padding:4px 10px; border-radius:5px;
+  border:1px solid var(--border2); background:transparent;
+  color:var(--text2); font-family:var(--font-mono); font-size:11px;
+  cursor:pointer; transition:.2s; letter-spacing:.5px;
+}
+.ctrl-mode-btn.active {
+  background:var(--cyan-dim,rgba(0,212,255,0.12));
+  border-color:var(--cyan); color:var(--cyan);
+}
+.ctrl-mode-btn:hover:not(.active) { border-color:var(--border2); color:var(--text); }
+
+.manual-range { display:flex; align-items:center; gap:6px; }
+.range-dash { font-family:var(--font-mono); font-size:12px; color:var(--muted); }
+
 @media(max-width:600px){
   header { padding:10px 14px; }
   main { padding:12px; }
   .metric-value { font-size:26px; }
   .login-box { padding:22px; }
+  .chart-ctrl { gap:8px; }
 }
 </style>
 </head>
@@ -359,19 +402,91 @@ main { padding:20px; max-width:1400px; margin:0 auto; }
 
     <!-- Charts -->
     <div class="grid-charts">
+
+      <!-- Pressure -->
       <div class="chart-card">
         <div class="chart-title">▲ Pressure History — MPa</div>
         <div class="chart-wrap"><canvas id="chart-pressure"></canvas></div>
+        <div class="chart-ctrl">
+          <div class="ctrl-group">
+            <span class="ctrl-label">POINTS :</span>
+            <select class="ctrl-select" onchange="setPoints('pressure', this.value)">
+              <option value="20">20</option>
+              <option value="30" selected>30</option>
+              <option value="60">60</option>
+              <option value="120">120</option>
+            </select>
+          </div>
+          <div class="ctrl-sep"></div>
+          <div class="ctrl-group">
+            <span class="ctrl-label">Y-AXIS :</span>
+            <button class="ctrl-mode-btn active" onclick="setYMode('pressure','auto',this)">AUTO</button>
+            <button class="ctrl-mode-btn"        onclick="setYMode('pressure','manual',this)">MANUAL</button>
+            <div class="manual-range" id="range-pressure" style="display:none">
+              <input class="ctrl-input" id="pres-min" type="number" step="0.1" placeholder="Min" oninput="applyRange('pressure')">
+              <span class="range-dash">—</span>
+              <input class="ctrl-input" id="pres-max" type="number" step="0.1" placeholder="Max" oninput="applyRange('pressure')">
+            </div>
+          </div>
+        </div>
       </div>
+
+      <!-- Temperature -->
       <div class="chart-card">
         <div class="chart-title">◉ Temperature History — °C</div>
         <div class="chart-wrap"><canvas id="chart-temp"></canvas></div>
+        <div class="chart-ctrl">
+          <div class="ctrl-group">
+            <span class="ctrl-label">POINTS :</span>
+            <select class="ctrl-select" onchange="setPoints('temp', this.value)">
+              <option value="20">20</option>
+              <option value="30" selected>30</option>
+              <option value="60">60</option>
+              <option value="120">120</option>
+            </select>
+          </div>
+          <div class="ctrl-sep"></div>
+          <div class="ctrl-group">
+            <span class="ctrl-label">Y-AXIS :</span>
+            <button class="ctrl-mode-btn active" onclick="setYMode('temp','auto',this)">AUTO</button>
+            <button class="ctrl-mode-btn"        onclick="setYMode('temp','manual',this)">MANUAL</button>
+            <div class="manual-range" id="range-temp" style="display:none">
+              <input class="ctrl-input" id="temp-min" type="number" step="1" placeholder="Min" oninput="applyRange('temp')">
+              <span class="range-dash">—</span>
+              <input class="ctrl-input" id="temp-max" type="number" step="1" placeholder="Max" oninput="applyRange('temp')">
+            </div>
+          </div>
+        </div>
       </div>
-      <!-- DSH / SSH / Subcool chart — full width -->
+
+      <!-- DSH / SSH / Subcool — full width -->
       <div class="chart-card" style="grid-column:1/-1;">
         <div class="chart-title">◈ Superheat &amp; Subcooling — K</div>
         <div class="chart-wrap" style="height:190px;"><canvas id="chart-superheat"></canvas></div>
+        <div class="chart-ctrl">
+          <div class="ctrl-group">
+            <span class="ctrl-label">POINTS :</span>
+            <select class="ctrl-select" onchange="setPoints('superheat', this.value)">
+              <option value="20">20</option>
+              <option value="30" selected>30</option>
+              <option value="60">60</option>
+              <option value="120">120</option>
+            </select>
+          </div>
+          <div class="ctrl-sep"></div>
+          <div class="ctrl-group">
+            <span class="ctrl-label">Y-AXIS :</span>
+            <button class="ctrl-mode-btn active" onclick="setYMode('superheat','auto',this)">AUTO</button>
+            <button class="ctrl-mode-btn"        onclick="setYMode('superheat','manual',this)">MANUAL</button>
+            <div class="manual-range" id="range-superheat" style="display:none">
+              <input class="ctrl-input" id="sh-min" type="number" step="1" placeholder="Min" oninput="applyRange('superheat')">
+              <span class="range-dash">—</span>
+              <input class="ctrl-input" id="sh-max" type="number" step="1" placeholder="Max" oninput="applyRange('superheat')">
+            </div>
+          </div>
+        </div>
       </div>
+
     </div>
   </main>
 </div>
@@ -550,7 +665,8 @@ function initCharts() {
 }
 
 function pushChart(label, pd, ps, td, ts, dsh, ssh, sub) {
-  if (chartLabels.length >= MAX_PTS) {
+  const maxPts = Math.max(chartPts.pressure, chartPts.temp, chartPts.superheat);
+  if (chartLabels.length >= maxPts) {
     chartLabels.shift();
     pdData.shift(); psData.shift(); tdData.shift(); tsData.shift();
     dshData.shift(); sshData.shift(); subData.shift();
@@ -564,6 +680,64 @@ function pushChart(label, pd, ps, td, ts, dsh, ssh, sub) {
   pressureChart?.update();
   tempChart?.update();
   superheatChart?.update();
+}
+
+// ── Chart Controls ──
+// maxPts per chart (can differ)
+const chartPts = { pressure:30, temp:30, superheat:30 };
+
+const chartMap = {
+  pressure:  () => pressureChart,
+  temp:      () => tempChart,
+  superheat: () => superheatChart,
+};
+
+// Change number of visible points
+function setPoints(name, val) {
+  chartPts[name] = parseInt(val);
+  // trim or keep — next pushChart will enforce the new limit
+  // also trim existing data immediately
+  const ch = chartMap[name]();
+  if (!ch) return;
+  while (chartLabels.length > chartPts[name]) {
+    chartLabels.shift();
+    pdData.shift(); psData.shift(); tdData.shift(); tsData.shift();
+    dshData.shift(); sshData.shift(); subData.shift();
+  }
+  pressureChart?.update(); tempChart?.update(); superheatChart?.update();
+}
+
+// Toggle Auto / Manual Y-axis
+function setYMode(name, mode, btn) {
+  // update button styles (find siblings)
+  btn.closest('.ctrl-group').querySelectorAll('.ctrl-mode-btn')
+    .forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const rangeEl = document.getElementById('range-' + name);
+  if (mode === 'auto') {
+    rangeEl.style.display = 'none';
+    const ch = chartMap[name]();
+    if (!ch) return;
+    ch.options.scales.y.min = undefined;
+    ch.options.scales.y.max = undefined;
+    ch.update();
+  } else {
+    rangeEl.style.display = 'flex';
+  }
+}
+
+// Apply manual min/max
+function applyRange(name) {
+  const ch = chartMap[name]();
+  if (!ch) return;
+  const ids = { pressure:['pres-min','pres-max'], temp:['temp-min','temp-max'], superheat:['sh-min','sh-max'] };
+  const [minId, maxId] = ids[name];
+  const minVal = parseFloat(document.getElementById(minId).value);
+  const maxVal = parseFloat(document.getElementById(maxId).value);
+  ch.options.scales.y.min = isNaN(minVal) ? undefined : minVal;
+  ch.options.scales.y.max = isNaN(maxVal) ? undefined : maxVal;
+  ch.update();
 }
 </script>
 </body>
