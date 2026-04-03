@@ -276,39 +276,6 @@ main { padding:20px; max-width:1400px; margin:0 auto; }
 .manual-range { display:flex; align-items:center; gap:6px; }
 .range-dash { font-family:var(--font-mono); font-size:12px; color:var(--muted); }
 
-/* ── Crosshair cursor ── */
-.chart-wrap { position:relative; }
-.crosshair-canvas {
-  position:absolute; inset:0;
-  pointer-events:none;
-  border-radius:4px;
-}
-.cursor-tooltip {
-  position:absolute;
-  background:rgba(8,12,24,0.92);
-  border:1px solid var(--border2);
-  border-radius:8px;
-  padding:8px 12px;
-  font-family:var(--font-mono); font-size:11px;
-  color:var(--text);
-  pointer-events:none;
-  white-space:nowrap;
-  z-index:50;
-  display:none;
-  box-shadow:0 4px 20px rgba(0,0,0,0.5);
-  line-height:1.8;
-  min-width:140px;
-}
-.cursor-tooltip-title {
-  font-size:10px; color:var(--text2);
-  border-bottom:1px solid var(--border);
-  margin-bottom:5px; padding-bottom:4px;
-  letter-spacing:1px;
-}
-.tt-row { display:flex; justify-content:space-between; gap:14px; }
-.tt-key { color:var(--text2); }
-.tt-val { font-weight:600; }
-
 @media(max-width:600px){
   header { padding:10px 14px; }
   main { padding:12px; }
@@ -439,11 +406,7 @@ main { padding:20px; max-width:1400px; margin:0 auto; }
       <!-- Pressure -->
       <div class="chart-card">
         <div class="chart-title">▲ Pressure History — MPa</div>
-        <div class="chart-wrap" id="wrap-pressure">
-          <canvas id="chart-pressure"></canvas>
-          <canvas class="crosshair-canvas" id="cross-pressure"></canvas>
-          <div class="cursor-tooltip" id="tip-pressure"></div>
-        </div>
+        <div class="chart-wrap"><canvas id="chart-pressure"></canvas></div>
         <div class="chart-ctrl">
           <div class="ctrl-group">
             <span class="ctrl-label">POINTS :</span>
@@ -465,22 +428,13 @@ main { padding:20px; max-width:1400px; margin:0 auto; }
               <input class="ctrl-input" id="pres-max" type="number" step="0.1" placeholder="Max" oninput="applyRange('pressure')">
             </div>
           </div>
-          <div class="ctrl-sep"></div>
-          <div class="ctrl-group">
-            <span class="ctrl-label">CURSOR :</span>
-            <button class="ctrl-mode-btn" id="cur-btn-pressure" onclick="toggleCursor('pressure',this)">OFF</button>
-          </div>
         </div>
       </div>
 
       <!-- Temperature -->
       <div class="chart-card">
         <div class="chart-title">◉ Temperature History — °C</div>
-        <div class="chart-wrap" id="wrap-temp">
-          <canvas id="chart-temp"></canvas>
-          <canvas class="crosshair-canvas" id="cross-temp"></canvas>
-          <div class="cursor-tooltip" id="tip-temp"></div>
-        </div>
+        <div class="chart-wrap"><canvas id="chart-temp"></canvas></div>
         <div class="chart-ctrl">
           <div class="ctrl-group">
             <span class="ctrl-label">POINTS :</span>
@@ -502,22 +456,13 @@ main { padding:20px; max-width:1400px; margin:0 auto; }
               <input class="ctrl-input" id="temp-max" type="number" step="1" placeholder="Max" oninput="applyRange('temp')">
             </div>
           </div>
-          <div class="ctrl-sep"></div>
-          <div class="ctrl-group">
-            <span class="ctrl-label">CURSOR :</span>
-            <button class="ctrl-mode-btn" id="cur-btn-temp" onclick="toggleCursor('temp',this)">OFF</button>
-          </div>
         </div>
       </div>
 
       <!-- DSH / SSH / Subcool — full width -->
       <div class="chart-card" style="grid-column:1/-1;">
         <div class="chart-title">◈ Superheat &amp; Subcooling — K</div>
-        <div class="chart-wrap" id="wrap-superheat" style="height:190px;">
-          <canvas id="chart-superheat"></canvas>
-          <canvas class="crosshair-canvas" id="cross-superheat"></canvas>
-          <div class="cursor-tooltip" id="tip-superheat"></div>
-        </div>
+        <div class="chart-wrap" style="height:190px;"><canvas id="chart-superheat"></canvas></div>
         <div class="chart-ctrl">
           <div class="ctrl-group">
             <span class="ctrl-label">POINTS :</span>
@@ -539,22 +484,13 @@ main { padding:20px; max-width:1400px; margin:0 auto; }
               <input class="ctrl-input" id="sh-max" type="number" step="1" placeholder="Max" oninput="applyRange('superheat')">
             </div>
           </div>
-          <div class="ctrl-sep"></div>
-          <div class="ctrl-group">
-            <span class="ctrl-label">CURSOR :</span>
-            <button class="ctrl-mode-btn" id="cur-btn-superheat" onclick="toggleCursor('superheat',this)">OFF</button>
-          </div>
         </div>
       </div>
 
       <!-- Sat.Temp High / Low — full width -->
       <div class="chart-card" style="grid-column:1/-1;">
         <div class="chart-title">◆ Saturation Temperature — °C</div>
-        <div class="chart-wrap" id="wrap-sattemp" style="height:190px;">
-          <canvas id="chart-sattemp"></canvas>
-          <canvas class="crosshair-canvas" id="cross-sattemp"></canvas>
-          <div class="cursor-tooltip" id="tip-sattemp"></div>
-        </div>
+        <div class="chart-wrap" style="height:190px;"><canvas id="chart-sattemp"></canvas></div>
         <div class="chart-ctrl">
           <div class="ctrl-group">
             <span class="ctrl-label">POINTS :</span>
@@ -575,11 +511,6 @@ main { padding:20px; max-width:1400px; margin:0 auto; }
               <span class="range-dash">—</span>
               <input class="ctrl-input" id="sat-max" type="number" step="1" placeholder="Max" oninput="applyRange('sattemp')">
             </div>
-          </div>
-          <div class="ctrl-sep"></div>
-          <div class="ctrl-group">
-            <span class="ctrl-label">CURSOR :</span>
-            <button class="ctrl-mode-btn" id="cur-btn-sattemp" onclick="toggleCursor('sattemp',this)">OFF</button>
           </div>
         </div>
       </div>
@@ -857,179 +788,6 @@ function applyRange(name) {
   ch.options.scales.y.max = isNaN(maxVal) ? undefined : maxVal;
   ch.update();
 }
-
-// ══════════════════════════════════════════
-//  CROSSHAIR CURSOR SYSTEM
-// ══════════════════════════════════════════
-const cursorState = { pressure:false, temp:false, superheat:false, sattemp:false };
-
-// dataset colors สำหรับ tooltip dot
-const datasetColors = {
-  pressure:  ['#00d4ff','#00e89a'],
-  temp:      ['#f5c400','#ff7a00','#ff3860','#00e89a'],
-  superheat: ['#f5c400','#ff7a00','#00d4ff'],
-  sattemp:   ['#00d4ff','#00e89a'],
-};
-
-function toggleCursor(name, btn) {
-  cursorState[name] = !cursorState[name];
-  const isOn = cursorState[name];
-  btn.textContent = isOn ? 'ON' : 'OFF';
-  btn.classList.toggle('active', isOn);
-
-  const crossEl = document.getElementById('cross-' + name);
-  const tipEl   = document.getElementById('tip-' + name);
-  const wrapEl  = document.getElementById('wrap-' + name);
-  const mainCanvas = document.getElementById('chart-' + name);
-
-  if (isOn) {
-    // ตั้งขนาด overlay canvas ให้ตรงกับ main canvas
-    crossEl.width  = mainCanvas.offsetWidth;
-    crossEl.height = mainCanvas.offsetHeight;
-    crossEl.style.width  = mainCanvas.offsetWidth  + 'px';
-    crossEl.style.height = mainCanvas.offsetHeight + 'px';
-    wrapEl.addEventListener('mousemove', onCursorMove);
-    wrapEl.addEventListener('mouseleave', onCursorLeave);
-    wrapEl.style.cursor = 'crosshair';
-  } else {
-    wrapEl.removeEventListener('mousemove', onCursorMove);
-    wrapEl.removeEventListener('mouseleave', onCursorLeave);
-    wrapEl.style.cursor = '';
-    // ล้าง canvas และซ่อน tooltip
-    const ctx = crossEl.getContext('2d');
-    ctx.clearRect(0, 0, crossEl.width, crossEl.height);
-    tipEl.style.display = 'none';
-  }
-}
-
-function getChartNameFromWrap(wrapEl) {
-  return wrapEl.id.replace('wrap-', '');
-}
-
-function onCursorMove(e) {
-  const wrapEl = e.currentTarget;
-  const name   = getChartNameFromWrap(wrapEl);
-  const ch     = chartMap[name]();
-  if (!ch || !cursorState[name]) return;
-
-  const crossEl = document.getElementById('cross-' + name);
-  const tipEl   = document.getElementById('tip-' + name);
-  const rect    = wrapEl.getBoundingClientRect();
-
-  const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
-
-  // ขอบเขต plot area จาก Chart.js
-  const chartArea = ch.chartArea;
-  if (!chartArea) return;
-  if (mouseX < chartArea.left || mouseX > chartArea.right ||
-      mouseY < chartArea.top  || mouseY > chartArea.bottom) {
-    const ctx2 = crossEl.getContext('2d');
-    ctx2.clearRect(0, 0, crossEl.width, crossEl.height);
-    tipEl.style.display = 'none';
-    return;
-  }
-
-  // หา index จุดที่ใกล้ที่สุด
-  const plotW = chartArea.right - chartArea.left;
-  const dataLen = chartLabels.length;
-  if (dataLen === 0) return;
-  const rawIdx = ((mouseX - chartArea.left) / plotW) * (dataLen - 1);
-  const idx    = Math.max(0, Math.min(dataLen - 1, Math.round(rawIdx)));
-
-  // X position ที่ตรงกับ data point
-  const snapX = chartArea.left + (idx / (dataLen - 1)) * plotW;
-
-  // วาด crosshair บน overlay canvas
-  const ctx2 = crossEl.getContext('2d');
-  ctx2.clearRect(0, 0, crossEl.width, crossEl.height);
-
-  ctx2.save();
-  // เส้นแนวตั้ง
-  ctx2.beginPath();
-  ctx2.strokeStyle = 'rgba(0,212,255,0.6)';
-  ctx2.lineWidth   = 1;
-  ctx2.setLineDash([4, 3]);
-  ctx2.moveTo(snapX, chartArea.top);
-  ctx2.lineTo(snapX, chartArea.bottom);
-  ctx2.stroke();
-  // เส้นแนวนอน
-  ctx2.beginPath();
-  ctx2.strokeStyle = 'rgba(0,212,255,0.25)';
-  ctx2.moveTo(chartArea.left,  mouseY);
-  ctx2.lineTo(chartArea.right, mouseY);
-  ctx2.stroke();
-  ctx2.restore();
-
-  // วาดจุดบนเส้นกราฟแต่ละเส้น
-  ch.data.datasets.forEach((ds, di) => {
-    const val = ds.data[idx];
-    if (val == null) return;
-    const yScale = ch.scales.y;
-    const dotY   = yScale.getPixelForValue(val);
-    const color  = (datasetColors[name] || [])[di] || ds.borderColor || '#fff';
-    ctx2.save();
-    ctx2.beginPath();
-    ctx2.arc(snapX, dotY, 4, 0, Math.PI * 2);
-    ctx2.fillStyle   = color;
-    ctx2.strokeStyle = '#080c18';
-    ctx2.lineWidth   = 1.5;
-    ctx2.fill();
-    ctx2.stroke();
-    ctx2.restore();
-  });
-
-  // สร้าง tooltip
-  const label = chartLabels[idx] || '';
-  const colors = datasetColors[name] || [];
-  let rows = '';
-  ch.data.datasets.forEach((ds, di) => {
-    const val = ds.data[idx];
-    const color = colors[di] || ds.borderColor || '#fff';
-    const valStr = val != null ? (+val).toFixed(2) : '--';
-    rows += `<div class="tt-row">
-      <span class="tt-key" style="color:${color}">▸ ${ds.label}</span>
-      <span class="tt-val" style="color:${color}">${valStr}</span>
-    </div>`;
-  });
-  tipEl.innerHTML = `<div class="cursor-tooltip-title">🕐 ${label}</div>${rows}`;
-  tipEl.style.display = 'block';
-
-  // ตำแหน่ง tooltip ไม่ให้ออกนอกขอบ
-  const tipW = 160;
-  let tipLeft = snapX + 12;
-  if (tipLeft + tipW > crossEl.width) tipLeft = snapX - tipW - 12;
-  let tipTop = mouseY - 20;
-  if (tipTop < 0) tipTop = 4;
-  tipEl.style.left = tipLeft + 'px';
-  tipEl.style.top  = tipTop  + 'px';
-}
-
-function onCursorLeave(e) {
-  const wrapEl  = e.currentTarget;
-  const name    = getChartNameFromWrap(wrapEl);
-  const crossEl = document.getElementById('cross-' + name);
-  const tipEl   = document.getElementById('tip-'   + name);
-  const ctx2    = crossEl.getContext('2d');
-  ctx2.clearRect(0, 0, crossEl.width, crossEl.height);
-  tipEl.style.display = 'none';
-}
-
-// Resize observer — ปรับ overlay canvas เมื่อหน้าจอเปลี่ยนขนาด
-function setupResizeObservers() {
-  ['pressure','temp','superheat','sattemp'].forEach(name => {
-    const mainCanvas = document.getElementById('chart-' + name);
-    const crossEl    = document.getElementById('cross-' + name);
-    if (!mainCanvas || !crossEl) return;
-    new ResizeObserver(() => {
-      crossEl.width  = mainCanvas.offsetWidth;
-      crossEl.height = mainCanvas.offsetHeight;
-    }).observe(mainCanvas);
-  });
-}
-// เรียกหลัง initCharts
-const _origInitCharts = initCharts;
-function initCharts() { _origInitCharts(); setupResizeObservers(); }
 </script>
 </body>
 </html>
