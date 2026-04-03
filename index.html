@@ -508,6 +508,7 @@ const auth = firebase.auth();
 const db   = firebase.database();
 
 const chartLabels=[], pdData=[], psData=[], tdData=[], tsData=[];
+const ttopData=[], tcondData=[];
 const dshData=[], sshData=[], subData=[];
 const MAX_PTS = 30;
 let pressureChart, tempChart, superheatChart, chartsReady = false;
@@ -604,7 +605,7 @@ function updateDashboard(d) {
   document.getElementById('last-update').textContent =
     new Date().toLocaleTimeString('th-TH',{hour12:false});
   const t = new Date().toLocaleTimeString('th-TH',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  pushChart(t, d.PD, d.PS, d.TD, d.TS, d.DSH, d.SSH, d.Subcool);
+  pushChart(t, d.PD, d.PS, d.TD, d.TS, d.TTop, d.TCondout, d.DSH, d.SSH, d.Subcool);
 }
 
 function updateWifiBars(rssi) {
@@ -633,23 +634,25 @@ function initCharts() {
   pressureChart = new Chart(document.getElementById('chart-pressure'), {
     type:'line',
     data:{ labels:chartLabels, datasets:[
-      {label:'PD (MPa)',data:pdData,borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,0.05)',tension:.4,pointRadius:2,borderWidth:1.5},
-      {label:'PS (MPa)',data:psData,borderColor:'#00e89a',backgroundColor:'rgba(0,232,154,0.05)',tension:.4,pointRadius:2,borderWidth:1.5},
+      {label:'PD (MPa)',data:pdData,borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,0.05)',tension:.4,pointRadius:1.5,borderWidth:1.5},
+      {label:'PS (MPa)',data:psData,borderColor:'#00e89a',backgroundColor:'rgba(0,232,154,0.05)',tension:.4,pointRadius:1.5,borderWidth:1.5},
     ]}, options:baseOpts
   });
   tempChart = new Chart(document.getElementById('chart-temp'), {
     type:'line',
     data:{ labels:chartLabels, datasets:[
-      {label:'TD (°C)',data:tdData,borderColor:'#f5c400',backgroundColor:'rgba(245,196,0,0.05)',tension:.4,pointRadius:2,borderWidth:1.5},
-      {label:'TS (°C)',data:tsData,borderColor:'#ff7a00',backgroundColor:'rgba(255,122,0,0.05)',tension:.4,pointRadius:2,borderWidth:1.5},
+      {label:'TD (°C)',   data:tdData,    borderColor:'#f5c400', backgroundColor:'rgba(245,196,0,0.05)',   tension:.4, pointRadius:1.5, borderWidth:1.5},
+      {label:'TS (°C)',   data:tsData,    borderColor:'#ff7a00', backgroundColor:'rgba(255,122,0,0.05)',   tension:.4, pointRadius:1.5, borderWidth:1.5},
+      {label:'TTop (°C)', data:ttopData,  borderColor:'#ff3860', backgroundColor:'rgba(255,56,96,0.05)',   tension:.4, pointRadius:1.5, borderWidth:1.5, borderDash:[5,3]},
+      {label:'TCond (°C)',data:tcondData, borderColor:'#00e89a', backgroundColor:'rgba(0,232,154,0.05)',   tension:.4, pointRadius:1.5, borderWidth:1.5, borderDash:[5,3]},
     ]}, options:baseOpts
   });
   superheatChart = new Chart(document.getElementById('chart-superheat'), {
     type:'line',
     data:{ labels:chartLabels, datasets:[
-      {label:'DSH (K)', data:dshData, borderColor:'#f5c400', backgroundColor:'rgba(245,196,0,0.05)',  tension:.4, pointRadius:2, borderWidth:1.5},
-      {label:'SSH (K)', data:sshData, borderColor:'#ff7a00', backgroundColor:'rgba(255,122,0,0.05)',  tension:.4, pointRadius:2, borderWidth:1.5},
-      {label:'Subcool (K)', data:subData, borderColor:'#00d4ff', backgroundColor:'rgba(0,212,255,0.05)', tension:.4, pointRadius:2, borderWidth:1.5},
+      {label:'DSH (K)', data:dshData, borderColor:'#f5c400', backgroundColor:'rgba(245,196,0,0.05)',  tension:.4, pointRadius:1.5, borderWidth:1.5},
+      {label:'SSH (K)', data:sshData, borderColor:'#ff7a00', backgroundColor:'rgba(255,122,0,0.05)',  tension:.4, pointRadius:1.5, borderWidth:1.5},
+      {label:'Subcool (K)', data:subData, borderColor:'#00d4ff', backgroundColor:'rgba(0,212,255,0.05)', tension:.4, pointRadius:1.5, borderWidth:1.5},
     ]}, options:{
       ...baseOpts,
       plugins:{
@@ -664,16 +667,19 @@ function initCharts() {
   });
 }
 
-function pushChart(label, pd, ps, td, ts, dsh, ssh, sub) {
+function pushChart(label, pd, ps, td, ts, ttop, tcond, dsh, ssh, sub) {
   const maxPts = Math.max(chartPts.pressure, chartPts.temp, chartPts.superheat);
   if (chartLabels.length >= maxPts) {
     chartLabels.shift();
-    pdData.shift(); psData.shift(); tdData.shift(); tsData.shift();
+    pdData.shift(); psData.shift();
+    tdData.shift(); tsData.shift(); ttopData.shift(); tcondData.shift();
     dshData.shift(); sshData.shift(); subData.shift();
   }
   chartLabels.push(label);
-  pdData.push(pd??null);  psData.push(ps??null);
-  tdData.push(td??null);  tsData.push(ts??null);
+  pdData.push(pd??null);    psData.push(ps??null);
+  tdData.push(td??null);    tsData.push(ts??null);
+  ttopData.push(ttop!=null  ? +ttop  : null);
+  tcondData.push(tcond!=null ? +tcond : null);
   dshData.push(dsh!=null ? +dsh : null);
   sshData.push(ssh!=null ? +ssh : null);
   subData.push(sub!=null ? +sub : null);
