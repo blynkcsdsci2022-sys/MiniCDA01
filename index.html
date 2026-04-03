@@ -487,6 +487,34 @@ main { padding:20px; max-width:1400px; margin:0 auto; }
         </div>
       </div>
 
+      <!-- Sat.Temp High / Low — full width -->
+      <div class="chart-card" style="grid-column:1/-1;">
+        <div class="chart-title">◆ Saturation Temperature — °C</div>
+        <div class="chart-wrap" style="height:190px;"><canvas id="chart-sattemp"></canvas></div>
+        <div class="chart-ctrl">
+          <div class="ctrl-group">
+            <span class="ctrl-label">POINTS :</span>
+            <select class="ctrl-select" onchange="setPoints('sattemp', this.value)">
+              <option value="20">20</option>
+              <option value="30" selected>30</option>
+              <option value="60">60</option>
+              <option value="120">120</option>
+            </select>
+          </div>
+          <div class="ctrl-sep"></div>
+          <div class="ctrl-group">
+            <span class="ctrl-label">Y-AXIS :</span>
+            <button class="ctrl-mode-btn active" onclick="setYMode('sattemp','auto',this)">AUTO</button>
+            <button class="ctrl-mode-btn"        onclick="setYMode('sattemp','manual',this)">MANUAL</button>
+            <div class="manual-range" id="range-sattemp" style="display:none">
+              <input class="ctrl-input" id="sat-min" type="number" step="1" placeholder="Min" oninput="applyRange('sattemp')">
+              <span class="range-dash">—</span>
+              <input class="ctrl-input" id="sat-max" type="number" step="1" placeholder="Max" oninput="applyRange('sattemp')">
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -510,8 +538,10 @@ const db   = firebase.database();
 const chartLabels=[], pdData=[], psData=[], tdData=[], tsData=[];
 const ttopData=[], tcondData=[];
 const dshData=[], sshData=[], subData=[];
+const ctrData=[], etrData=[];
 const MAX_PTS = 30;
-let pressureChart, tempChart, superheatChart, chartsReady = false;
+let pressureChart, tempChart, superheatChart, satTempChart, chartsReady = false;
+let lastData = null;
 
 // ── Auth state ──
 auth.onAuthStateChanged(user => {
@@ -577,6 +607,7 @@ function setBadge(id, val) {
   else                            { el.className='badge badge-warn';  el.textContent='HIGH'; }
 }
 function updateDashboard(d) {
+  lastData = d;
   const map = {
     'val-pd':      d.PD?.toFixed(2),
     'val-ps':      d.PS?.toFixed(2),
@@ -665,15 +696,23 @@ function initCharts() {
       }
     }
   });
+  satTempChart = new Chart(document.getElementById('chart-sattemp'), {
+    type:'line',
+    data:{ labels:chartLabels, datasets:[
+      {label:'Sat.Temp High — CTR (°C)', data:ctrData, borderColor:'#00d4ff', backgroundColor:'rgba(0,212,255,0.06)', tension:.4, pointRadius:1.5, borderWidth:1.5},
+      {label:'Sat.Temp Low  — ETR (°C)', data:etrData, borderColor:'#00e89a', backgroundColor:'rgba(0,232,154,0.06)', tension:.4, pointRadius:1.5, borderWidth:1.5, borderDash:[5,3]},
+    ]}, options:baseOpts
+  });
 }
 
 function pushChart(label, pd, ps, td, ts, ttop, tcond, dsh, ssh, sub) {
-  const maxPts = Math.max(chartPts.pressure, chartPts.temp, chartPts.superheat);
+  const maxPts = Math.max(chartPts.pressure, chartPts.temp, chartPts.superheat, chartPts.sattemp);
   if (chartLabels.length >= maxPts) {
     chartLabels.shift();
     pdData.shift(); psData.shift();
     tdData.shift(); tsData.shift(); ttopData.shift(); tcondData.shift();
     dshData.shift(); sshData.shift(); subData.shift();
+    ctrData.shift(); etrData.shift();
   }
   chartLabels.push(label);
   pdData.push(pd??null);    psData.push(ps??null);
@@ -683,19 +722,23 @@ function pushChart(label, pd, ps, td, ts, ttop, tcond, dsh, ssh, sub) {
   dshData.push(dsh!=null ? +dsh : null);
   sshData.push(ssh!=null ? +ssh : null);
   subData.push(sub!=null ? +sub : null);
+  // CTR และ ETR อ่านจาก d โดยตรงผ่าน lastData
+  ctrData.push(lastData?.CTR != null ? +lastData.CTR : null);
+  etrData.push(lastData?.ETR != null ? +lastData.ETR : null);
   pressureChart?.update();
   tempChart?.update();
   superheatChart?.update();
+  satTempChart?.update();
 }
 
 // ── Chart Controls ──
-// maxPts per chart (can differ)
-const chartPts = { pressure:30, temp:30, superheat:30 };
+const chartPts = { pressure:30, temp:30, superheat:30, sattemp:30 };
 
 const chartMap = {
   pressure:  () => pressureChart,
   temp:      () => tempChart,
   superheat: () => superheatChart,
+  sattemp:   () => satTempChart,
 };
 
 // Change number of visible points
@@ -737,7 +780,7 @@ function setYMode(name, mode, btn) {
 function applyRange(name) {
   const ch = chartMap[name]();
   if (!ch) return;
-  const ids = { pressure:['pres-min','pres-max'], temp:['temp-min','temp-max'], superheat:['sh-min','sh-max'] };
+  const ids = { pressure:['pres-min','pres-max'], temp:['temp-min','temp-max'], superheat:['sh-min','sh-max'], sattemp:['sat-min','sat-max'] };
   const [minId, maxId] = ids[name];
   const minVal = parseFloat(document.getElementById(minId).value);
   const maxVal = parseFloat(document.getElementById(maxId).value);
