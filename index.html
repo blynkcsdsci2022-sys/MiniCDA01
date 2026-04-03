@@ -367,6 +367,11 @@ main { padding:20px; max-width:1400px; margin:0 auto; }
         <div class="chart-title">◉ Temperature History — °C</div>
         <div class="chart-wrap"><canvas id="chart-temp"></canvas></div>
       </div>
+      <!-- DSH / SSH / Subcool chart — full width -->
+      <div class="chart-card" style="grid-column:1/-1;">
+        <div class="chart-title">◈ Superheat &amp; Subcooling — K</div>
+        <div class="chart-wrap" style="height:190px;"><canvas id="chart-superheat"></canvas></div>
+      </div>
     </div>
   </main>
 </div>
@@ -388,8 +393,9 @@ const auth = firebase.auth();
 const db   = firebase.database();
 
 const chartLabels=[], pdData=[], psData=[], tdData=[], tsData=[];
+const dshData=[], sshData=[], subData=[];
 const MAX_PTS = 30;
-let pressureChart, tempChart, chartsReady = false;
+let pressureChart, tempChart, superheatChart, chartsReady = false;
 
 // ── Auth state ──
 auth.onAuthStateChanged(user => {
@@ -483,7 +489,7 @@ function updateDashboard(d) {
   document.getElementById('last-update').textContent =
     new Date().toLocaleTimeString('th-TH',{hour12:false});
   const t = new Date().toLocaleTimeString('th-TH',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  pushChart(t, d.PD, d.PS, d.TD, d.TS);
+  pushChart(t, d.PD, d.PS, d.TD, d.TS, d.DSH, d.SSH, d.Subcool);
 }
 
 function updateWifiBars(rssi) {
@@ -523,16 +529,41 @@ function initCharts() {
       {label:'TS (°C)',data:tsData,borderColor:'#ff7a00',backgroundColor:'rgba(255,122,0,0.05)',tension:.4,pointRadius:2,borderWidth:1.5},
     ]}, options:baseOpts
   });
+  superheatChart = new Chart(document.getElementById('chart-superheat'), {
+    type:'line',
+    data:{ labels:chartLabels, datasets:[
+      {label:'DSH (K)', data:dshData, borderColor:'#f5c400', backgroundColor:'rgba(245,196,0,0.05)',  tension:.4, pointRadius:2, borderWidth:1.5},
+      {label:'SSH (K)', data:sshData, borderColor:'#ff7a00', backgroundColor:'rgba(255,122,0,0.05)',  tension:.4, pointRadius:2, borderWidth:1.5},
+      {label:'Subcool (K)', data:subData, borderColor:'#00d4ff', backgroundColor:'rgba(0,212,255,0.05)', tension:.4, pointRadius:2, borderWidth:1.5},
+    ]}, options:{
+      ...baseOpts,
+      plugins:{
+        ...baseOpts.plugins,
+        annotation:{ annotations:{
+          zeroLine:{ type:'line', yMin:0, yMax:0, borderColor:'rgba(255,255,255,0.1)', borderWidth:1 },
+          dshLow:{   type:'line', yMin:5,  yMax:5,  borderColor:'rgba(245,196,0,0.25)', borderWidth:1, borderDash:[4,4] },
+          dshHigh:{  type:'line', yMin:25, yMax:25, borderColor:'rgba(245,196,0,0.25)', borderWidth:1, borderDash:[4,4] },
+        }}
+      }
+    }
+  });
 }
 
-function pushChart(label, pd, ps, td, ts) {
+function pushChart(label, pd, ps, td, ts, dsh, ssh, sub) {
   if (chartLabels.length >= MAX_PTS) {
-    chartLabels.shift(); pdData.shift(); psData.shift(); tdData.shift(); tsData.shift();
+    chartLabels.shift();
+    pdData.shift(); psData.shift(); tdData.shift(); tsData.shift();
+    dshData.shift(); sshData.shift(); subData.shift();
   }
   chartLabels.push(label);
-  pdData.push(pd??null); psData.push(ps??null);
-  tdData.push(td??null); tsData.push(ts??null);
-  pressureChart?.update(); tempChart?.update();
+  pdData.push(pd??null);  psData.push(ps??null);
+  tdData.push(td??null);  tsData.push(ts??null);
+  dshData.push(dsh!=null ? +dsh : null);
+  sshData.push(ssh!=null ? +ssh : null);
+  subData.push(sub!=null ? +sub : null);
+  pressureChart?.update();
+  tempChart?.update();
+  superheatChart?.update();
 }
 </script>
 </body>
